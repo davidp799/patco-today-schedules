@@ -43,12 +43,18 @@ def txt_to_csv(input_file, output_file, replace_characters=None):
         print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
-    # Define input and output file paths
-    input_txt = r"c:\Users\papda\GitHub\patco-today-schedules\4_3_2025\txt\weekdays-west.txt"
-    output_csv = r"c:\Users\papda\GitHub\patco-today-schedules\4_3_2025\csv\weekdays-west.csv"
+    # Define input and output directories
+    input_dir = os.path.join("", "4_3_2025", "txt")
+    output_dir = os.path.join("", "4_3_2025", "csv")
 
     # Ensure the output directory exists
-    os.makedirs(os.path.dirname(output_csv), exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
 
-    # Convert the file
-    txt_to_csv(input_txt, output_csv)
+    # Loop through all .txt files in the input directory
+    for filename in os.listdir(input_dir):
+        if filename.endswith(".txt"):
+            input_txt = os.path.join(input_dir, filename)
+            output_csv = os.path.join(output_dir, filename.replace(".txt", ".csv"))
+
+            # Convert the file
+            txt_to_csv(input_txt, output_csv)
