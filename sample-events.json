@@ -1,0 +1,22 @@
+{
+    "GetScheduleInformation": {
+        "regular_schedule_effective_date": "7/14/25",
+        "has_new_regular_schedule": false,
+        "has_special_schedule": true,
+        "special_schedule_pdf_url": "https://www.ridepatco.org/publish/library/TW_2025-07-15.pdf",
+        "special_schedule_text": "Tuesday, July 15, 2025",
+        "currentTimestamp": "2025-07-15T20:02:27.103022+00:00"
+    },
+    "ConvertPdfToTxt": {
+        "text": ""
+    },
+    "ParsePdfTxt": {
+        "text": ""
+    },
+    "StoreDatainDynamoDB": {
+        "text": ""
+    },
+    "SaveNewRegularSchedules": {
+        "text": ""
+    }
+}
