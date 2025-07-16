@@ -4,7 +4,7 @@ import requests
 import re
 from datetime import datetime
 from io import BytesIO
-import fitz
+import fitz  # pymupdf
 import logging
 
 S3_BUCKET = 'patco-today'
