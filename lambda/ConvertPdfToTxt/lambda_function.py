@@ -2,11 +2,10 @@ import json
 import os
 import boto3
 import requests
+import re
 from datetime import datetime
 from io import BytesIO
-from pdfminer.high_level import extract_text_to_fp
-from pdfminer.layout import LAParams
-from io import StringIO
+import fitz  # pymupdf
 
 S3_BUCKET = 'patco-today'
 
@@ -21,47 +20,57 @@ def lambda_handler(event, context):
     if response.status_code != 200:
         raise Exception(f'Failed to download PDF: {response.status_code}')
 
-    # Convert PDF to text
+    # Convert PDF to text using pymupdf
     pdf_file = BytesIO(response.content)
-    output_string = StringIO()
-    extract_text_to_fp(pdf_file, output_string, laparams=LAParams())
-    text = output_string.getvalue()
-    output_string.close()
-
-    # Process text: clean up unwanted sections
-    lines = text.split('\n')
+    doc = fitz.open(stream=pdf_file, filetype="pdf")
     
-    # Remove lines until we find the SECOND occurrence of "DLOWNEDNIL" spelled by consecutive lines
-    target_word = "DLOWNEDNIL"
-    start_index = 0
-    occurrences_found = 0
+    # Extract text from all pages
+    text = ""
+    for page in doc:
+        text += page.get_text()
     
-    for i in range(len(lines) - len(target_word) + 1):
-        # Check if consecutive lines spell "DLOWNEDNIL"
-        consecutive_chars = ''.join(line.strip() for line in lines[i:i+len(target_word)])
-        if consecutive_chars == target_word:
-            occurrences_found += 1
-            if occurrences_found == 2:  # Wait for the second occurrence
-                start_index = i + len(target_word)
-                break
+    doc.close()
     
-    # Keep only lines from after "DLOWNEDNIL" onwards
-    lines = lines[start_index:]
-    
-    # Find and remove everything from "24/7 Customer Service" onwards
-    cleaned_lines = []
-    for line in lines:
-        if "24/7 Customer Service" in line:
-            break
-        cleaned_lines.append(line)
-    
-    # Rejoin the cleaned lines
-    text = '\n'.join(cleaned_lines)
-    
-    # Process text: replace "A " with "A,", "P " with "P,", then remove all remaining spaces
-    text = text.replace("A ", "A,")
-    text = text.replace("P ", "P,")
+    # Process text: first handle special characters, then fix time formatting
+    text = text.replace("à", "CLOSED,")
+    text = text.replace("►", "CLOSED,")
     text = text.replace(" ", "")
+    text = text.replace("\t", "")
+    
+    # Fix time formatting: add commas after A and P only when they follow time patterns
+    # This regex matches time patterns like "12:34A" or "1:23P" and adds comma after A/P
+    text = re.sub(r'(\d{1,2}:\d{2}[AP])', r'\1,', text)
+    
+    # Filter lines: keep only lines that don't contain letters other than A and P
+    lines = text.split('\n')
+    filtered_lines = []
+    for line in lines:
+        # Skip empty lines - keep them
+        if not line.strip():
+            filtered_lines.append(line)
+            continue
+            
+        # Check if line contains any letters other than A and P
+        # Remove allowed characters and see if any letters remain
+        temp_line = line
+        # Remove numbers, punctuation, and allowed special characters
+        temp_line = re.sub(r'[0-9:,AP►à\n\r\tCLOSED]', '', temp_line)
+        # If any letters remain, they are not A or P, so skip this line
+        if not re.search(r'[a-zA-Z]', temp_line):
+            filtered_lines.append(line)
+    
+    text = '\n'.join(filtered_lines)
+    
+    # Fix CLOSED entries that are not at the beginning of line and not preceded by comma
+    lines = text.split('\n')
+    fixed_lines = []
+    for line in lines:
+        # Use regex to find CLOSED that is not at the beginning and not preceded by comma
+        # This will match any character (except comma) followed by CLOSED
+        fixed_line = re.sub(r'([^,])CLOSED', r'\1,CLOSED', line)
+        fixed_lines.append(fixed_line)
+    
+    text = '\n'.join(fixed_lines)
 
     # Prepare output event - pass through all original data
     output_event = dict(event)
@@ -73,7 +82,7 @@ def lambda_handler(event, context):
         # Debug mode: save to local file
         file_name = event.get('file_name', 'special_schedule')
         output_dir = 'output'
-        output_path = f"{output_dir}/{file_name}.txt"
+        output_path = f"{output_dir}/{file_name}.csv"
         
         # Create output directory if it doesn't exist
         os.makedirs(output_dir, exist_ok=True)
