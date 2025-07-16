@@ -31,46 +31,8 @@ def lambda_handler(event, context):
     
     doc.close()
     
-    # Process text: first handle special characters, then fix time formatting
-    text = text.replace("à", "CLOSED,")
-    text = text.replace("►", "CLOSED,")
-    text = text.replace(" ", "")
-    text = text.replace("\t", "")
-    
-    # Fix time formatting: add commas after A and P only when they follow time patterns
-    # This regex matches time patterns like "12:34A" or "1:23P" and adds comma after A/P
-    text = re.sub(r'(\d{1,2}:\d{2}[AP])', r'\1,', text)
-    
-    # Filter lines: keep only lines that don't contain letters other than A and P
-    lines = text.split('\n')
-    filtered_lines = []
-    for line in lines:
-        # Skip empty lines - keep them
-        if not line.strip():
-            filtered_lines.append(line)
-            continue
-            
-        # Check if line contains any letters other than A and P
-        # Remove allowed characters and see if any letters remain
-        temp_line = line
-        # Remove numbers, punctuation, and allowed special characters
-        temp_line = re.sub(r'[0-9:,AP►à\n\r\tCLOSED]', '', temp_line)
-        # If any letters remain, they are not A or P, so skip this line
-        if not re.search(r'[a-zA-Z]', temp_line):
-            filtered_lines.append(line)
-    
-    text = '\n'.join(filtered_lines)
-    
-    # Fix CLOSED entries that are not at the beginning of line and not preceded by comma
-    lines = text.split('\n')
-    fixed_lines = []
-    for line in lines:
-        # Use regex to find CLOSED that is not at the beginning and not preceded by comma
-        # This will match any character (except comma) followed by CLOSED
-        fixed_line = re.sub(r'([^,])CLOSED', r'\1,CLOSED', line)
-        fixed_lines.append(fixed_line)
-    
-    text = '\n'.join(fixed_lines)
+    # Clean and format the extracted text
+    text = _process_text(text)
 
     # Prepare output event - pass through all original data
     output_event = dict(event)
@@ -107,6 +69,100 @@ def lambda_handler(event, context):
     output_event['extracted_text_preview'] = text[:500] + "..." if len(text) > 500 else text
 
     return output_event
+
+def _process_text(text):
+    """Clean and format extracted PDF text into CSV format."""
+    # Step 1: Replace special characters with CLOSED
+    text = text.replace("►", "")
+    text = text.replace("à", "CLOSED,")
+    
+    # Step 2: Remove whitespace and tabs
+    text = text.replace(" ", "")
+    text = text.replace("\t", "")
+    
+    # Step 3: Add commas after time patterns (e.g., "12:34A" -> "12:34A,")
+    text = re.sub(r'(\d{1,2}:\d{2}[AP])', r'\1,', text)
+    
+    # Step 4: Filter lines to keep only valid schedule data
+    text = _filter_valid_lines(text)
+    
+    # Step 5: Fix CLOSED entries that need comma separation
+    text = _fix_closed_formatting(text)
+    
+    # Step 6: Ensure each line has exactly 14 columns
+    text = _normalize_to_14_columns(text)
+    
+    return text
+
+def _filter_valid_lines(text):
+    """Keep only lines that contain valid schedule data (numbers, times, CLOSED)."""
+    lines = text.split('\n')
+    filtered_lines = []
+    
+    for line in lines:
+        # Keep empty lines
+        if not line.strip():
+            filtered_lines.append(line)
+            continue
+            
+        # Check if line contains only allowed characters
+        temp_line = re.sub(r'[0-9:,AP►à\n\r\tCLOSED]', '', line)
+        
+        # If no unwanted letters remain, keep the line
+        if not re.search(r'[a-zA-Z]', temp_line):
+            filtered_lines.append(line)
+    
+    return '\n'.join(filtered_lines)
+
+def _fix_closed_formatting(text):
+    """Add commas before CLOSED when it's not at the beginning or already preceded by comma."""
+    lines = text.split('\n')
+    fixed_lines = []
+    
+    for line in lines:
+        # Add comma before CLOSED if it's not at start of line and not already preceded by comma
+        fixed_line = re.sub(r'([^,])CLOSED', r'\1,CLOSED', line)
+        fixed_lines.append(fixed_line)
+    
+    return '\n'.join(fixed_lines)
+
+def _normalize_to_14_columns(text):
+    """Ensure each line has exactly 14 columns by combining lines as needed."""
+    lines = text.split('\n')
+    normalized_lines = []
+    current_line_columns = []
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        
+        # Skip empty lines
+        if not line:
+            i += 1
+            continue
+        
+        # Split current line into columns (remove empty strings from trailing commas)
+        columns = [col for col in line.split(',') if col]
+        current_line_columns.extend(columns)
+        
+        # If we have 14 or more columns, create a complete line
+        if len(current_line_columns) >= 14:
+            # Take exactly 14 columns
+            complete_line = ','.join(current_line_columns[:14])
+            normalized_lines.append(complete_line)
+            
+            # Keep any extra columns for the next line
+            current_line_columns = current_line_columns[14:]
+        
+        i += 1
+    
+    # If there are remaining columns that didn't make a complete line of 14,
+    # add them as a final line (this handles partial schedules)
+    if current_line_columns:
+        remaining_line = ','.join(current_line_columns)
+        normalized_lines.append(remaining_line)
+    
+    return '\n'.join(normalized_lines)
 
 if __name__ == "__main__":
     """Local testing entry point."""
