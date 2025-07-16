@@ -1,0 +1,7 @@
+pdfminer.six==20191110
+pycryptodome
+six
+requests
+boto3
+sortedcontainers
+chardet
