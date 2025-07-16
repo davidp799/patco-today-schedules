@@ -106,11 +106,6 @@ def lambda_handler(event, context):
         output_event['westbound_schedule_s3_uri'] = f"s3://{S3_BUCKET}/{westbound_s3_key}"
         output_event['eastbound_schedule_s3_uri'] = f"s3://{S3_BUCKET}/{eastbound_s3_key}"
     
-    # Also include preview of both schedules
-    logger.info('Adding preview of both schedules to output event.')
-    output_event['westbound_preview'] = westbound_text[:500] + "..." if len(westbound_text) > 500 else westbound_text
-    output_event['eastbound_preview'] = eastbound_text[:500] + "..." if len(eastbound_text) > 500 else eastbound_text
-
     logger.info('Lambda handler completed successfully.')
     return output_event
 
