@@ -28,6 +28,42 @@ def lambda_handler(event, context):
     text = output_string.getvalue()
     output_string.close()
 
+    # Process text: clean up unwanted sections
+    lines = text.split('\n')
+    
+    # Remove lines until we find the SECOND occurrence of "DLOWNEDNIL" spelled by consecutive lines
+    target_word = "DLOWNEDNIL"
+    start_index = 0
+    occurrences_found = 0
+    
+    for i in range(len(lines) - len(target_word) + 1):
+        # Check if consecutive lines spell "DLOWNEDNIL"
+        consecutive_chars = ''.join(line.strip() for line in lines[i:i+len(target_word)])
+        if consecutive_chars == target_word:
+            occurrences_found += 1
+            if occurrences_found == 2:  # Wait for the second occurrence
+                start_index = i + len(target_word)
+                break
+    
+    # Keep only lines from after "DLOWNEDNIL" onwards
+    lines = lines[start_index:]
+    
+    # Find and remove everything from "24/7 Customer Service" onwards
+    cleaned_lines = []
+    for line in lines:
+        if "24/7 Customer Service" in line:
+            break
+        cleaned_lines.append(line)
+    
+    # Rejoin the cleaned lines
+    text = '\n'.join(cleaned_lines)
+    
+    # Process text: replace "A " with "A,", "P " with "P,", then remove all remaining spaces
+    text = text.replace("A ", "A,")
+    text = text.replace("P ", "P,")
+    text = text.replace(" ", "")
+    text = text.replace("à", "CLOSED,")
+
     # Prepare S3 path
     today_str = datetime.utcnow().strftime('%Y-%m-%d')
     s3_key = f"{today_str}/special_schedule.txt"
