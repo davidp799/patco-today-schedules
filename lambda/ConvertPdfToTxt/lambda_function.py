@@ -93,13 +93,13 @@ def lambda_handler(event, context):
         today_str = datetime.utcnow().strftime('%Y-%m-%d')
         
         # Upload westbound schedule to S3
-        westbound_s3_key = f"{today_str}/special_schedule_westbound.csv"
+        westbound_s3_key = f"schedules/special/{today_str}/special_schedule_westbound.csv"
         s3 = boto3.client('s3')
         logger.info(f'Uploading westbound schedule to S3: {westbound_s3_key}')
         s3.put_object(Bucket=S3_BUCKET, Key=westbound_s3_key, Body=westbound_text.encode('utf-8'))
         
         # Upload eastbound schedule to S3
-        eastbound_s3_key = f"{today_str}/special_schedule_eastbound.csv"
+        eastbound_s3_key = f"schedules/special/{today_str}/special_schedule_eastbound.csv"
         logger.info(f'Uploading eastbound schedule to S3: {eastbound_s3_key}')
         s3.put_object(Bucket=S3_BUCKET, Key=eastbound_s3_key, Body=eastbound_text.encode('utf-8'))
 
