@@ -36,7 +36,7 @@ def lambda_handler(event, context):
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        regular_schedule_effective_date = get_regular_schedule_effective_date(soup)
+        regular_schedule_effective_date, regular_schedule_pdf_url = get_regular_schedule_effective_date_and_pdf(soup, url)
         pdf_url, special_schedule_text = get_today_special_schedule(soup, today)
         has_special_schedule = pdf_url is not None
 
@@ -55,6 +55,7 @@ def lambda_handler(event, context):
 
     response_payload = {
         'regular_schedule_effective_date': regular_schedule_effective_date,
+        'regular_schedule_pdf_url': regular_schedule_pdf_url,
         'has_new_regular_schedule': has_new_regular_schedule,
         'has_special_schedule': has_special_schedule,
         'special_schedule_pdf_url': pdf_url,
@@ -63,15 +64,25 @@ def lambda_handler(event, context):
     }
     return response_payload
 
-def get_regular_schedule_effective_date(soup):
-    """Extracts the effective date of the regular schedule from the page."""
+def get_regular_schedule_effective_date_and_pdf(soup, base_url):
+    """Extracts the effective date and PDF link of the regular schedule from the page."""
     for b in soup.find_all('b'):
         text = b.get_text(strip=True)
         if text.startswith("Effective "):
             match = re.search(r'Effective\s+(\d{1,2}/\d{1,2}/\d{2,4})', text)
-            if match:
-                return match.group(1)
-    return None
+            effective_date = match.group(1) if match else None
+            # Look for PDF link in the same parent <p> tag
+            parent = b.find_parent('p')
+            pdf_url = None
+            if parent:
+                a_tag = parent.find('a', href=True)
+                if a_tag and a_tag['href'].lower().endswith('.pdf'):
+                    href = a_tag['href']
+                    # Remove leading ".." and join with base url
+                    href = re.sub(r'^\.\./', '/', href)
+                    pdf_url = f"http://www.ridepatco.org{href}" if href.startswith('/') else f"http://www.ridepatco.org/{href}"
+            return effective_date, pdf_url
+    return None, None
 
 def get_today_special_schedule(soup, today):
     """Finds today's special schedule PDF and description, if any."""
