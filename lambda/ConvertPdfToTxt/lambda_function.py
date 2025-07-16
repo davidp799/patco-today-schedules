@@ -367,7 +367,7 @@ if __name__ == "__main__":
     test_event = {
         "debug_mode": True,
         "file_name": "TW_2025-07-15",
-        "special_schedule_pdf_url": "https://www.ridepatco.org/publish/library/TW_2025-07-15.pdf"  # Local file for testing
+        "special_schedule_pdf_url": "https://www.ridepatco.org/publish/library/TW_2025-07-15.pdf"
     }
     try:
         result = lambda_handler(test_event, None)
