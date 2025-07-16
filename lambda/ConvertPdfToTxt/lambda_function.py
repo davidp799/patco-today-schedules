@@ -62,7 +62,6 @@ def lambda_handler(event, context):
     text = text.replace("A ", "A,")
     text = text.replace("P ", "P,")
     text = text.replace(" ", "")
-    text = text.replace("à", "CLOSED,")
 
     # Prepare S3 path
     today_str = datetime.utcnow().strftime('%Y-%m-%d')
@@ -80,3 +79,18 @@ def lambda_handler(event, context):
     output_event['extracted_text_preview'] = text[:500] + "..." if len(text) > 500 else text
 
     return output_event
+
+if __name__ == "__main__":
+    """Local testing entry point."""
+    test_event = {
+        "debug_mode": True,
+        "file_name": "TW_2025-07-15"
+    }
+    try:
+        result = lambda_handler(test_event, None)
+        print("Processing complete!")
+        print(f"Output saved to: {result.get('special_schedule_txt_local_path')}")
+        print(f"Preview: {result.get('extracted_text_preview')}")
+    except Exception as e:
+        print(f"Error during processing: {e}")
+        raise
