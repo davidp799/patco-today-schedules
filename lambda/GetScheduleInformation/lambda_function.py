@@ -104,10 +104,63 @@ def get_today_special_schedule(soup, today):
                     date_str = date_match.group(2)
                     link_date = datetime.strptime(date_str, "%B %d, %Y").date()
                     if link_date == today.date():
-                        return a['href'], link_text
+                        # Save PDF to S3
+                        pdf_url = a['href']
+                        if save_special_schedule_to_s3(pdf_url, today):
+                            return pdf_url, link_text
+                        else:
+                            logger.warning(f"Failed to save special schedule PDF: {pdf_url}")
+                            return pdf_url, link_text  # Still return the URL even if save failed
                 except Exception:
                     continue
     return None, None
+
+def save_special_schedule_to_s3(pdf_url, date):
+    """Downloads and saves special schedule PDF to S3."""
+    try:
+        # Construct full URL if needed
+        if not pdf_url.startswith('http'):
+            if pdf_url.startswith('..'):
+                pdf_url = pdf_url.replace('..', '', 1)
+            if not pdf_url.startswith('/'):
+                pdf_url = '/' + pdf_url
+            pdf_url = f"http://www.ridepatco.org{pdf_url}"
+        
+        # Download the PDF
+        headers = {'User-Agent': USER_AGENT}
+        response = requests.get(pdf_url, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        # Extract filename from URL or use default
+        file_name = pdf_url.split('/')[-1]
+        if not file_name.endswith('.pdf'):
+            file_name = 'special_schedule.pdf'
+        
+        # Format date and create S3 key
+        date_str = date.strftime('%Y-%m-%d')
+        s3_key = f"schedules/special/{date_str}/{file_name}"
+        
+        # Upload to S3
+        s3_client.put_object(
+            Bucket=REGULAR_SCHEDULE_BUCKET,  # Using same bucket, could be made configurable
+            Key=s3_key,
+            Body=response.content,
+            ContentType='application/pdf',
+            Metadata={
+                'download-date': date.isoformat(),
+                'source-url': pdf_url
+            }
+        )
+        
+        logger.info(f"Successfully saved special schedule PDF to S3: {s3_key}")
+        return True
+        
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to download special schedule PDF from {pdf_url}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to save special schedule PDF to S3: {e}")
+        return False
 
 def check_new_regular_schedule(s3_client, bucket, key, effective_date):
     """Checks if the regular schedule is new compared to S3 metadata."""
