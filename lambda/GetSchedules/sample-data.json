@@ -1,0 +1,21 @@
+{
+    "request-with-date-parameter": "curl -X GET 'https://api.example.com/get-schedules?schedule_date=2025-07-15'",
+    "request-without-date-parameter": "curl -X GET 'https://api.example.com/get-schedules'",
+    "response-with-special-schedule": {
+        "message": "Special schedule found",
+        "schedule_date": "2025-07-15",
+        "eastbound_url": "https://patco-today.s3.amazonaws.com/schedules/special/2025-07-15/special_schedule_eastbound.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+        "westbound_url": "https://patco-today.s3.amazonaws.com/schedules/special/2025-07-15/special_schedule_westbound.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+        "expires_in_seconds": 3600
+    },
+    "response-without-special-schedule": {
+        "message": "No special schedule found for the given date",
+        "schedule_date": "2025-07-15"
+    },
+    "response-with-invalid-date-format": {
+        "error": "Invalid date format. Use YYYY-MM-DD."
+    },
+    "response-with-internal-server-error": {
+        "error": "Internal server error"
+    }
+}
