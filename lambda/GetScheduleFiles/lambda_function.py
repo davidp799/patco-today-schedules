@@ -58,8 +58,9 @@ def lambda_handler(event, context):
                 'expires_in_seconds': presigned_url_expiration
             }
         
-        # Check regular schedules if last_updated parameter is provided
+        # Check regular schedules
         if last_updated:
+            # If last_updated is provided, check for updates
             regular_schedule_result = check_regular_schedules(bucket_name, parsed_date, last_updated)
             
             # Structure regular schedules response
@@ -91,11 +92,27 @@ def lambda_handler(event, context):
                 else:
                     response_data['message'] = 'No special schedule found for the given date. Regular schedules updated'
         else:
-            # No last_updated parameter provided, only check special schedules
-            if has_special_schedules:
-                response_data['message'] = 'Special schedule found'
+            # No last_updated parameter provided, always return regular schedule URLs
+            regular_schedule_result = get_regular_schedule_urls(bucket_name, parsed_date)
+            
+            # Structure regular schedules response
+            if 'regular_schedules_error' in regular_schedule_result:
+                response_data['regular_schedules'] = {
+                    'error': regular_schedule_result['regular_schedules_error']
+                }
             else:
-                response_data['message'] = 'No special schedule found for the given date'
+                response_data['regular_schedules'] = {
+                    'updated': True,
+                    'last_modified': regular_schedule_result['regular_schedules_last_modified'],
+                    'urls': regular_schedule_result['regular_schedule_urls'],
+                    'expires_in_seconds': regular_schedule_result['regular_urls_expire_in_seconds']
+                }
+            
+            # Construct message
+            if has_special_schedules:
+                response_data['message'] = 'Special schedule found. Regular schedules provided'
+            else:
+                response_data['message'] = 'No special schedule found for the given date. Regular schedules provided'
         
         return {
             'statusCode': 200,
@@ -135,6 +152,82 @@ def get_regular_schedule_path(date):
     # Default fallback (should not happen with proper date ranges)
     return 'schedules/regular'
 
+def get_regular_schedule_urls(bucket_name, date):
+    """
+    Always return regular schedule URLs for the given date without checking last_updated.
+    """
+    try:
+        # Get the appropriate path for regular schedules
+        regular_path = get_regular_schedule_path(date)
+        
+        # Check the last-modified time of weekdays-east.csv as reference
+        weekdays_east_key = f'{regular_path}/weekdays-east.csv'
+        
+        try:
+            response = s3.head_object(Bucket=bucket_name, Key=weekdays_east_key)
+            s3_last_modified = response['LastModified'].replace(tzinfo=None)  # Remove timezone for comparison
+            
+            presigned_url_expiration = 3600  # 1 hour
+            
+            # Define all regular schedule files
+            # Weekdays files from date-specific path
+            weekday_files = [
+                'weekdays-east.csv',
+                'weekdays-west.csv'
+            ]
+            
+            # Saturday and Sunday files from base regular path
+            weekend_files = [
+                'saturdays-east.csv',
+                'saturdays-west.csv',
+                'sundays-east.csv',
+                'sundays-west.csv'
+            ]
+            
+            regular_urls = {}
+            
+            # Get weekday files from date-specific path
+            for file_name in weekday_files:
+                file_key = f'{regular_path}/{file_name}'
+                if check_file_exists(bucket_name, file_key):
+                    presigned_url = s3.generate_presigned_url(
+                        'get_object',
+                        Params={'Bucket': bucket_name, 'Key': file_key},
+                        ExpiresIn=presigned_url_expiration
+                    )
+                    # Convert filename to URL key (remove .csv and replace - with _)
+                    url_key = file_name.replace('.csv', '_url').replace('-', '_')
+                    regular_urls[url_key] = presigned_url
+            
+            # Get weekend files from base regular path
+            for file_name in weekend_files:
+                file_key = f'schedules/regular/{file_name}'
+                if check_file_exists(bucket_name, file_key):
+                    presigned_url = s3.generate_presigned_url(
+                        'get_object',
+                        Params={'Bucket': bucket_name, 'Key': file_key},
+                        ExpiresIn=presigned_url_expiration
+                    )
+                    # Convert filename to URL key (remove .csv and replace - with _)
+                    url_key = file_name.replace('.csv', '_url').replace('-', '_')
+                    regular_urls[url_key] = presigned_url
+            
+            return {
+                'regular_schedules_last_modified': s3_last_modified.strftime('%Y-%m-%d %H:%M:%S'),
+                'regular_schedule_urls': regular_urls,
+                'regular_urls_expire_in_seconds': presigned_url_expiration
+            }
+                
+        except Exception as e:
+            return {
+                'regular_schedules_error': f'Could not get regular schedules: {str(e)}'
+            }
+            
+    except Exception as e:
+        return {
+            'regular_schedules_error': f'Error getting regular schedules: {str(e)}'
+        }
+
 def check_regular_schedules(bucket_name, date, last_updated_str):
     """
     Check if regular schedules need to be updated and return presigned URLs if needed.
@@ -169,17 +262,24 @@ def check_regular_schedules(bucket_name, date, last_updated_str):
                 presigned_url_expiration = 3600  # 1 hour
                 
                 # Define all regular schedule files
-                schedule_files = [
-                    'saturdays-east.csv',
-                    'saturdays-west.csv',
-                    'sundays-east.csv',
-                    'sundays-west.csv',
+                # Weekdays files from date-specific path
+                weekday_files = [
                     'weekdays-east.csv',
                     'weekdays-west.csv'
                 ]
                 
+                # Saturday and Sunday files from base regular path
+                weekend_files = [
+                    'saturdays-east.csv',
+                    'saturdays-west.csv',
+                    'sundays-east.csv',
+                    'sundays-west.csv'
+                ]
+                
                 regular_urls = {}
-                for file_name in schedule_files:
+                
+                # Get weekday files from date-specific path
+                for file_name in weekday_files:
                     file_key = f'{regular_path}/{file_name}'
                     if check_file_exists(bucket_name, file_key):
                         presigned_url = s3.generate_presigned_url(
@@ -189,6 +289,25 @@ def check_regular_schedules(bucket_name, date, last_updated_str):
                         )
                         # Convert filename to URL key (remove .csv and replace - with _)
                         url_key = file_name.replace('.csv', '_url').replace('-', '_')
+                        regular_urls[url_key] = presigned_url
+                
+                # Get weekend files from base regular path
+                for file_name in weekend_files:
+                    file_key = f'schedules/regular/{file_name}'
+                    if check_file_exists(bucket_name, file_key):
+                        presigned_url = s3.generate_presigned_url(
+                            'get_object',
+                            Params={'Bucket': bucket_name, 'Key': file_key},
+                            ExpiresIn=presigned_url_expiration
+                        )
+                        # Convert filename to URL key (remove .csv and replace - with _)
+                        # Special handling for weekend files to make them plural in the URL key
+                        if file_name.startswith('saturday'):
+                            url_key = file_name.replace('saturday', 'saturdays').replace('.csv', '_url').replace('-', '_')
+                        elif file_name.startswith('sunday'):
+                            url_key = file_name.replace('sunday', 'sundays').replace('.csv', '_url').replace('-', '_')
+                        else:
+                            url_key = file_name.replace('.csv', '_url').replace('-', '_')
                         regular_urls[url_key] = presigned_url
                 
                 return {
