@@ -113,8 +113,10 @@ def check_regular_schedules(bucket_name, date, last_updated_str):
             last_updated = datetime.strptime(last_updated_str, '%Y-%m-%d %H:%M:%S')
         except ValueError:
             try:
-                # Try ISO format
+                # Try ISO format and convert to naive datetime
                 last_updated = datetime.fromisoformat(last_updated_str.replace('Z', '+00:00'))
+                # Convert to naive datetime (remove timezone info)
+                last_updated = last_updated.replace(tzinfo=None)
             except ValueError:
                 return {
                     'regular_schedules_error': 'Invalid last_updated format. Use YYYY-MM-DD HH:MM:SS or ISO format.'
