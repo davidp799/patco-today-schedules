@@ -23,9 +23,7 @@ def lambda_handler(event, context):
             }
         
         bucket_name = 'patco-today'
-        response_data = {
-            'schedule_date': schedule_date
-        }
+        response_data = {}
         
         # Check for special schedules
         special_base_path = f'schedules/special/{schedule_date}/'
@@ -35,7 +33,9 @@ def lambda_handler(event, context):
         eastbound_exists = check_file_exists(bucket_name, eastbound_key)
         westbound_exists = check_file_exists(bucket_name, westbound_key)
         
-        if eastbound_exists and westbound_exists:
+        has_special_schedules = eastbound_exists and westbound_exists
+        
+        if has_special_schedules:
             # Generate presigned URLs for special schedules (valid for 1 hour)
             presigned_url_expiration = 3600
             
@@ -51,19 +51,51 @@ def lambda_handler(event, context):
                 ExpiresIn=presigned_url_expiration
             )
             
-            response_data.update({
-                'message': 'Special schedule found',
+            response_data['special_schedules'] = {
+                'schedule_date': schedule_date,
                 'eastbound_url': eastbound_presigned_url,
                 'westbound_url': westbound_presigned_url,
                 'expires_in_seconds': presigned_url_expiration
-            })
-        else:
-            response_data['message'] = 'No special schedule found for the given date'
+            }
         
         # Check regular schedules if last_updated parameter is provided
         if last_updated:
             regular_schedule_result = check_regular_schedules(bucket_name, parsed_date, last_updated)
-            response_data.update(regular_schedule_result)
+            
+            # Structure regular schedules response
+            if 'regular_schedules_error' in regular_schedule_result:
+                response_data['regular_schedules'] = {
+                    'error': regular_schedule_result['regular_schedules_error']
+                }
+            else:
+                regular_schedules_data = {
+                    'updated': regular_schedule_result.get('regular_schedules_updated', False)
+                }
+                
+                if regular_schedule_result.get('regular_schedules_updated') == True:
+                    regular_schedules_data['last_modified'] = regular_schedule_result['regular_schedules_last_modified']
+                    regular_schedules_data['urls'] = regular_schedule_result['regular_schedule_urls']
+                    regular_schedules_data['expires_in_seconds'] = regular_schedule_result['regular_urls_expire_in_seconds']
+                
+                response_data['regular_schedules'] = regular_schedules_data
+            
+            # Construct a comprehensive message
+            if regular_schedule_result.get('regular_schedules_updated') == False:
+                if has_special_schedules:
+                    response_data['message'] = 'Special schedule found. Regular schedules are up to date'
+                else:
+                    response_data['message'] = 'No special schedule found for the given date. Regular schedules are up to date'
+            elif regular_schedule_result.get('regular_schedules_updated') == True:
+                if has_special_schedules:
+                    response_data['message'] = 'Special schedule found. Regular schedules updated'
+                else:
+                    response_data['message'] = 'No special schedule found for the given date. Regular schedules updated'
+        else:
+            # No last_updated parameter provided, only check special schedules
+            if has_special_schedules:
+                response_data['message'] = 'Special schedule found'
+            else:
+                response_data['message'] = 'No special schedule found for the given date'
         
         return {
             'statusCode': 200,
@@ -167,8 +199,7 @@ def check_regular_schedules(bucket_name, date, last_updated_str):
                 }
             else:
                 return {
-                    'regular_schedules_updated': False,
-                    'message': 'Regular schedules are up to date'
+                    'regular_schedules_updated': False
                 }
                 
         except Exception as e:
