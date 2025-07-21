@@ -1,0 +1,85 @@
+{
+    "request-with-date-parameter": "curl -X GET 'https://pyy0z7hm81.execute-api.us-east-1.amazonaws.com/prod?schedule_date=2025-07-15' -H 'x-api-key: your-api-key-here'",
+    "request-without-date-parameter": "curl -X GET 'https://pyy0z7hm81.execute-api.us-east-1.amazonaws.com/prod' -H 'x-api-key: your-api-key-here'",
+    "request-with-last-updated-parameter": "curl -X GET 'https://pyy0z7hm81.execute-api.us-east-1.amazonaws.com/prod?schedule_date=2025-07-15&last_updated=2025-07-01%2010:00:00' -H 'x-api-key: your-api-key-here'",
+    "request-with-last-updated-iso-format": "curl -X GET 'https://pyy0z7hm81.execute-api.us-east-1.amazonaws.com/prod?schedule_date=2025-07-15&last_updated=2025-07-01T10:00:00Z' -H 'x-api-key: your-api-key-here'",
+    
+    "response-with-special-schedule-only": {
+        "schedule_date": "2025-07-15",
+        "message": "Special schedule found",
+        "eastbound_url": "https://patco-today.s3.amazonaws.com/schedules/special/2025-07-15/special_schedule_eastbound.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+        "westbound_url": "https://patco-today.s3.amazonaws.com/schedules/special/2025-07-15/special_schedule_westbound.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+        "expires_in_seconds": 3600
+    },
+    
+    "response-with-special-schedule-and-updated-regular-schedules": {
+        "schedule_date": "2025-07-15",
+        "message": "Special schedule found",
+        "eastbound_url": "https://patco-today.s3.amazonaws.com/schedules/special/2025-07-15/special_schedule_eastbound.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+        "westbound_url": "https://patco-today.s3.amazonaws.com/schedules/special/2025-07-15/special_schedule_westbound.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+        "expires_in_seconds": 3600,
+        "regular_schedules_updated": true,
+        "regular_schedules_last_modified": "2025-07-10 14:30:00",
+        "regular_schedule_urls": {
+            "saturdays_east_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/saturdays-east.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+            "saturdays_west_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/saturdays-west.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+            "sundays_east_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/sundays-east.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+            "sundays_west_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/sundays-west.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+            "weekdays_east_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/weekdays-east.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+            "weekdays_west_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/weekdays-west.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example"
+        },
+        "regular_urls_expire_in_seconds": 3600
+    },
+    
+    "response-without-special-schedule-with-updated-regular-schedules": {
+        "schedule_date": "2025-07-15",
+        "message": "No special schedule found for the given date",
+        "regular_schedules_updated": true,
+        "regular_schedules_last_modified": "2025-07-10 14:30:00",
+        "regular_schedule_urls": {
+            "saturdays_east_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/saturdays-east.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+            "saturdays_west_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/saturdays-west.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+            "sundays_east_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/sundays-east.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+            "sundays_west_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/sundays-west.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+            "weekdays_east_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/weekdays-east.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example",
+            "weekdays_west_url": "https://patco-today.s3.amazonaws.com/schedules/regular/2025-07-14/weekdays-west.csv?AWSAccessKeyId=AKIAIOSFODNN7EXAMPLE&Expires=1642524000&Signature=example"
+        },
+        "regular_urls_expire_in_seconds": 3600
+    },
+    
+    "response-with-up-to-date-regular-schedules": {
+        "schedule_date": "2025-07-15",
+        "message": "No special schedule found for the given date",
+        "regular_schedules_updated": false,
+        "message": "Regular schedules are up to date"
+    },
+    
+    "response-without-special-schedule": {
+        "schedule_date": "2025-07-15",
+        "message": "No special schedule found for the given date"
+    },
+    
+    "response-with-invalid-date-format": {
+        "error": "Invalid date format. Use YYYY-MM-DD."
+    },
+    
+    "response-with-invalid-last-updated-format": {
+        "schedule_date": "2025-07-15",
+        "message": "No special schedule found for the given date",
+        "regular_schedules_error": "Invalid last_updated format. Use YYYY-MM-DD HH:MM:SS or ISO format."
+    },
+    
+    "response-with-regular-schedules-error": {
+        "schedule_date": "2025-07-15",
+        "message": "No special schedule found for the given date",
+        "regular_schedules_error": "Could not check regular schedules: NoSuchKey"
+    },
+    
+    "response-with-internal-server-error": {
+        "error": "Internal server error"
+    },
+    
+    "response-with-missing-api-key": {
+        "message": "Forbidden"
+    }
+}
