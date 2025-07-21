@@ -17,6 +17,6 @@ The Software is provided "as is," without warranty of any kind, express or impli
 This license will automatically terminate if you fail to comply with any of its terms. Upon termination, you must cease all use of the Software and destroy all copies in your possession.
 
 ## Governing Law
-This license shall be governed by and construed in accordance with the laws of [Your Jurisdiction].
+This license shall be governed by and construed in accordance with the laws of the Commonwealth of Pennsylvania, United States.
 
-For inquiries, please contact [Your Contact Information].
+For inquiries, please contact david.r.pape [at] gmail [dot] com.
