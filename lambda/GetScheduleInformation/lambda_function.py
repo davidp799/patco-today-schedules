@@ -152,7 +152,7 @@ def save_special_schedule_to_s3(pdf_url, date):
             }
         )
         
-        logger.info(f"Successfully saved special schedule PDF to S3: {s3_key}")
+        # logger.info(f"Successfully saved special schedule PDF to S3: {s3_key}")
         return True
         
     except requests.exceptions.RequestException as e:
