@@ -179,4 +179,4 @@ DATE_RANGES = [
 
 ## License
 
-This repository contains schedule data and tools for the PATCO Today application.
+See [`LICENSE.md`](LICENSE.md) for license details.
