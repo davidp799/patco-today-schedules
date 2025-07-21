@@ -31,7 +31,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         parsed_date = _validate_date(schedule_date)
         if isinstance(parsed_date, dict):  # Error response
-            return parsed_date
+            return {
+                'statusCode': 400,
+                'body': json.dumps(parsed_date)
+            }
             
         response_data = {}
         
