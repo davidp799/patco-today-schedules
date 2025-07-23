@@ -2,7 +2,7 @@ import os
 import boto3
 import requests
 import re
-from datetime import datetime
+from datetime import datetime, date
 from io import BytesIO
 import fitz  # pymupdf
 import logging
@@ -59,6 +59,11 @@ def lambda_handler(event, context):
         else:
             reversed_eastbound_lines.append(line)
     eastbound_text = '\n'.join(reversed_eastbound_lines)
+
+    # Compare with regular schedules and add difference flags
+    # logger.info('Comparing special schedules with regular schedules.')
+    westbound_text = _add_difference_flags(westbound_text, 'west')
+    eastbound_text = _add_difference_flags(eastbound_text, 'east')
 
     # Prepare output event - pass through all original data
     output_event = dict(event)
@@ -356,6 +361,90 @@ def _clean_empty_lines(lines):
         lines.pop()
     
     return lines
+
+def _get_regular_schedule_path(direction):
+    """Get the S3 path for the regular schedule based on current date and direction."""
+    today = datetime.utcnow().date()
+    weekday = today.weekday()  # 0=Monday, 6=Sunday
+    
+    # Determine schedule type based on day of week
+    if weekday < 5:  # Monday-Friday (0-4)
+        schedule_type = "weekdays"
+    elif weekday == 5:  # Saturday
+        schedule_type = "saturdays"
+    else:  # Sunday
+        schedule_type = "sundays"
+    
+    # Base path
+    base_path = "s3://patco-today/schedules/regular/"
+    
+    # Check if we need to add a special subpath for weekdays
+    if schedule_type == "weekdays":
+        # Define date ranges and their corresponding subpaths
+        date_ranges = [
+            (date(2025, 7, 14), date(2025, 7, 27), "2025-07-14/"),
+            (date(2025, 7, 28), date(2025, 8, 10), "2025-07-28/"),
+            (date(2025, 8, 11), date(2025, 8, 24), "2025-08-11/"),
+            (date(2025, 8, 25), date(2025, 8, 31), "2025-08-25/"),
+            (date(2025, 9, 1), date(2026, 2, 27), "2025-09-01/")
+        ]
+        
+        # Check which range the current date falls into
+        for start_date, end_date, subpath in date_ranges:
+            if start_date <= today <= end_date:
+                base_path += subpath
+                break
+    
+    # Add the filename
+    filename = f"{schedule_type}-{direction}.csv"
+    return base_path + filename
+
+def _add_difference_flags(special_schedule_text, direction):
+    """Compare special schedule with regular schedule and add difference flags."""
+    if not special_schedule_text.strip():
+        return special_schedule_text
+    
+    try:
+        # Get the regular schedule from S3
+        regular_schedule_path = _get_regular_schedule_path(direction)
+        s3 = boto3.client('s3')
+        
+        # Parse the S3 path
+        path_parts = regular_schedule_path.replace('s3://', '').split('/', 1)
+        bucket = path_parts[0]
+        key = path_parts[1]
+        
+        # Download the regular schedule
+        response = s3.get_object(Bucket=bucket, Key=key)
+        regular_schedule_text = response['Body'].read().decode('utf-8')
+        
+        # Split both schedules into lines
+        special_lines = special_schedule_text.split('\n')
+        regular_lines = regular_schedule_text.split('\n')
+        
+        # Create a set of regular schedule lines for quick lookup
+        regular_lines_set = set(line.strip() for line in regular_lines if line.strip())
+        
+        # Process each line in special schedule
+        processed_lines = []
+        for line in special_lines:
+            if line.strip():
+                # Check if this line exists in regular schedule
+                is_different = line.strip() not in regular_lines_set
+                # Append the difference flag
+                processed_line = line + ',true' if is_different else line + ',false'
+                processed_lines.append(processed_line)
+            else:
+                processed_lines.append(line)
+        
+        return '\n'.join(processed_lines)
+        
+    except Exception as e:
+        # If we can't get the regular schedule, just return the original text
+        # Log the error but don't fail the entire function
+        logger = logging.getLogger()
+        logger.warning(f"Could not compare with regular schedule: {e}")
+        return special_schedule_text
 
 if __name__ == "__main__":
     """Local testing entry point."""
