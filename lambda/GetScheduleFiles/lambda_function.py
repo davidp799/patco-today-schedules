@@ -93,6 +93,11 @@ def _get_special_schedules(schedule_date: str) -> Optional[Dict[str, Any]]:
         # Convert filename to URL key
         url_key = filename.replace('special_schedule_', '').replace('.csv', '_url')
         urls[url_key] = url
+
+    # Add PDF URL key
+    pdf_key = f'{special_base_path}special_schedule.pdf'
+    if _check_file_exists(pdf_key):
+        urls['pdf_url'] = _generate_presigned_url(pdf_key)
     
     return {
         'schedule_date': schedule_date,

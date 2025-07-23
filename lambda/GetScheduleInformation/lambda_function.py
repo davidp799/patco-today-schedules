@@ -131,10 +131,8 @@ def save_special_schedule_to_s3(pdf_url, date):
         response = requests.get(pdf_url, headers=headers, timeout=30)
         response.raise_for_status()
         
-        # Extract filename from URL or use default
-        file_name = pdf_url.split('/')[-1]
-        if not file_name.endswith('.pdf'):
-            file_name = 'special_schedule.pdf'
+        # Use default filename
+        file_name = 'special_schedule.pdf'
         
         # Format date and create S3 key
         date_str = date.strftime('%Y-%m-%d')
