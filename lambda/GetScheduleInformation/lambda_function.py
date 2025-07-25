@@ -94,6 +94,7 @@ def get_today_special_schedule(soup, today):
     if not ul:
         return None, None
 
+    # First try: Look for date in link text (existing logic)
     for li in ul.find_all('li'):
         a = li.find('a', href=True)
         if a and a['href'].lower().endswith('.pdf'):
@@ -113,6 +114,49 @@ def get_today_special_schedule(soup, today):
                             return pdf_url, link_text  # Still return the URL even if save failed
                 except Exception:
                     continue
+
+    # Second try: Look for TW_yyyy-mm-dd.pdf format in href
+    target_date_str = today.strftime('%Y-%m-%d')
+    for li in ul.find_all('li'):
+        a = li.find('a', href=True)
+        if a and a['href'].lower().endswith('.pdf'):
+            href = a['href']
+            # Check for TW_yyyy-mm-dd.pdf pattern
+            tw_match = re.search(r'TW_(\d{4}-\d{2}-\d{2})\.pdf', href)
+            if tw_match and tw_match.group(1) == target_date_str:
+                pdf_url = href
+                link_text = a.get_text(strip=True)
+                if save_special_schedule_to_s3(pdf_url, today):
+                    return pdf_url, link_text
+                else:
+                    logger.warning(f"Failed to save special schedule PDF: {pdf_url}")
+                    return pdf_url, link_text
+
+    # Third try: Look for any PDF containing today's date in various formats
+    date_patterns = [
+        today.strftime('%Y-%m-%d'),    # 2025-07-25
+        today.strftime('%Y_%m_%d'),    # 2025_07_25
+        today.strftime('%m-%d-%Y'),    # 07-25-2025
+        today.strftime('%m_%d_%Y'),    # 07_25_2025
+        today.strftime('%d-%m-%Y'),    # 25-07-2025
+        today.strftime('%d_%m_%Y'),    # 25_07_2025
+    ]
+    
+    for li in ul.find_all('li'):
+        a = li.find('a', href=True)
+        if a and a['href'].lower().endswith('.pdf'):
+            href = a['href']
+            # Check if any date pattern appears in the href
+            for pattern in date_patterns:
+                if pattern in href:
+                    pdf_url = href
+                    link_text = a.get_text(strip=True)
+                    if save_special_schedule_to_s3(pdf_url, today):
+                        return pdf_url, link_text
+                    else:
+                        logger.warning(f"Failed to save special schedule PDF: {pdf_url}")
+                        return pdf_url, link_text
+
     return None, None
 
 def save_special_schedule_to_s3(pdf_url, date):
