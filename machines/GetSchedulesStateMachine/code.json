@@ -1,0 +1,176 @@
+{
+  "Comment": "Schedule Parser Back-end Workflow - Parallel Processing",
+  "StartAt": "GetScheduleInformation",
+  "States": {
+    "GetScheduleInformation": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:905418476603:function:GetScheduleInformation",
+      "ResultPath": "$.scheduleInfo",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "NotifyFailureAndFail",
+          "ResultPath": "$.error"
+        }
+      ],
+      "Next": "ProcessSchedulesInParallel"
+    },
+    "ProcessSchedulesInParallel": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "CheckForSpecialSchedule",
+          "States": {
+            "CheckForSpecialSchedule": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.scheduleInfo.has_special_schedule",
+                  "BooleanEquals": true,
+                  "Next": "ConvertPdfToCsv"
+                }
+              ],
+              "Default": "NoSpecialScheduleFound"
+            },
+            "ConvertPdfToCsv": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-east-1:905418476603:function:ConvertPdfToTxt:3",
+              "InputPath": "$.scheduleInfo",
+              "ResultPath": "$.pdfConversionResult",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "NotifySpecialScheduleFailure",
+                  "ResultPath": "$.error"
+                }
+              ],
+              "End": true
+            },
+            "NotifySpecialScheduleFailure": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-east-1:905418476603:schedule-parser-failures",
+                "Message.$": "$.error.Cause",
+                "Subject": "Schedule Parser - Special Schedule Processing Failed"
+              },
+              "Next": "SpecialScheduleProcessingFailed"
+            },
+            "NoSpecialScheduleFound": {
+              "Type": "Succeed"
+            },
+            "SpecialScheduleProcessingFailed": {
+              "Type": "Fail",
+              "Cause": "Special Schedule processing encountered an unrecoverable error.",
+              "Error": "SpecialScheduleProcessingError"
+            }
+          }
+        },
+        {
+          "StartAt": "CheckForNewRegularSchedule",
+          "States": {
+            "CheckForNewRegularSchedule": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.scheduleInfo.has_new_regular_schedule",
+                  "BooleanEquals": true,
+                  "Next": "SaveNewRegularSchedules"
+                }
+              ],
+              "Default": "NoNewRegularScheduleFound"
+            },
+            "SaveNewRegularSchedules": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-east-1:905418476603:function:SaveNewRegularSchedules:1",
+              "InputPath": "$.scheduleInfo",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 5,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": [
+                    "States.ALL"
+                  ],
+                  "Next": "NotifyRegularScheduleFailure",
+                  "ResultPath": "$.error"
+                }
+              ],
+              "End": true
+            },
+            "NotifyRegularScheduleFailure": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-east-1:905418476603:schedule-parser-failures",
+                "Message.$": "$.error.Cause",
+                "Subject": "Schedule Parser - Regular Schedule Saving Failed"
+              },
+              "Next": "RegularScheduleSavingFailed"
+            },
+            "NoNewRegularScheduleFound": {
+              "Type": "Succeed"
+            },
+            "RegularScheduleSavingFailed": {
+              "Type": "Fail",
+              "Cause": "Regular Schedule saving encountered an unrecoverable error.",
+              "Error": "RegularScheduleSavingError"
+            }
+          }
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Next": "NotifyFailureAndFail",
+          "ResultPath": "$.error"
+        }
+      ],
+      "End": true
+    },
+    "NotifyFailureAndFail": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "arn:aws:sns:us-east-1:905418476603:schedule-parser-failures",
+        "Message.$": "$.error.Cause",
+        "Subject": "Schedule Parser - Workflow Failed"
+      },
+      "Next": "OverallWorkflowFailed"
+    },
+    "OverallWorkflowFailed": {
+      "Type": "Fail",
+      "Cause": "An unhandled error occurred in one of the parallel branches.",
+      "Error": "ParallelBranchFailure"
+    }
+  }
+}
