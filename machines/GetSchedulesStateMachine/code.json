@@ -47,8 +47,8 @@
                     "Lambda.SdkClientException",
                     "States.TaskFailed"
                   ],
-                  "IntervalSeconds": 2,
-                  "MaxAttempts": 6,
+                  "IntervalSeconds": 3,
+                  "MaxAttempts": 3,
                   "BackoffRate": 2
                 }
               ],

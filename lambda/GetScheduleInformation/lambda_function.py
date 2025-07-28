@@ -10,8 +10,11 @@ from datetime import datetime, timezone
 logger = logging.getLogger()
 logger.setLevel(os.environ.get('LOG_LEVEL', 'INFO').upper())
 
-# Initialize S3 client
-s3_client = boto3.client('s3')
+# Initialize S3 client with connection pooling
+s3_client = boto3.client('s3', config=boto3.session.Config(
+    max_pool_connections=10,
+    retries={'max_attempts': 2}
+))
 
 # Instantiate variables
 PATCO_SCHEDULES_URL = os.environ.get('PATCO_SCHEDULES_URL')

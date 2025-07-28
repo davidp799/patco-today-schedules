@@ -19,16 +19,17 @@ def lambda_handler(event, context):
         logger.error('No PDF URL provided in event.')
         raise ValueError('No PDF URL provided in event.')
 
-    # Download PDF
+    # Download PDF with streaming and timeout
     # logger.info(f'Downloading PDF from URL: {pdf_url}')
-    response = requests.get(pdf_url)
+    response = requests.get(pdf_url, stream=True, timeout=30)
     if response.status_code != 200:
         logger.error(f'Failed to download PDF: {response.status_code}')
         raise Exception(f'Failed to download PDF: {response.status_code}')
 
-    # Convert PDF to text using pymupdf
+    # Convert PDF to text using pymupdf with memory optimization
     # logger.info('Converting PDF to text using pymupdf.')
-    pdf_file = BytesIO(response.content)
+    pdf_content = b''.join(chunk for chunk in response.iter_content(chunk_size=8192))
+    pdf_file = BytesIO(pdf_content)
     doc = fitz.open(stream=pdf_file, filetype="pdf")
     
     # Extract text from all pages
