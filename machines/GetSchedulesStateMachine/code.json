@@ -4,7 +4,7 @@
   "States": {
     "GetScheduleInformation": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-east-1:905418476603:function:GetScheduleInformation",
+      "Resource": "arn:aws:lambda:us-east-1:905418476603:function:GetScheduleInformation:5",
       "ResultPath": "$.scheduleInfo",
       "Catch": [
         {
@@ -36,7 +36,7 @@
             },
             "ConvertPdfToCsv": {
               "Type": "Task",
-              "Resource": "arn:aws:lambda:us-east-1:905418476603:function:ConvertPdfToTxt:3",
+              "Resource": "arn:aws:lambda:us-east-1:905418476603:function:ConvertPdfToTxt:4",
               "InputPath": "$.scheduleInfo",
               "ResultPath": "$.pdfConversionResult",
               "Retry": [
@@ -99,7 +99,7 @@
             },
             "SaveNewRegularSchedules": {
               "Type": "Task",
-              "Resource": "arn:aws:lambda:us-east-1:905418476603:function:SaveNewRegularSchedules:1",
+              "Resource": "arn:aws:lambda:us-east-1:905418476603:function:SaveNewRegularSchedules:2",
               "InputPath": "$.scheduleInfo",
               "Retry": [
                 {
