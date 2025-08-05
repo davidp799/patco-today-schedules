@@ -1,6 +1,4 @@
-import os
-import boto3
-import requests
+import urllib.request
 import re
 from datetime import datetime, date
 from io import BytesIO
@@ -19,21 +17,25 @@ def lambda_handler(event, context):
         logger.error('No PDF URL provided in event.')
         raise ValueError('No PDF URL provided in event.')
 
-    # Download PDF with streaming and timeout
-    # logger.info(f'Downloading PDF from URL: {pdf_url}')
-    response = requests.get(pdf_url, stream=True, timeout=30)
-    if response.status_code != 200:
-        logger.error(f'Failed to download PDF: {response.status_code}')
-        raise Exception(f'Failed to download PDF: {response.status_code}')
+    # Download PDF using urllib instead of requests (saves ~2MB)
+    logger.info(f'Downloading PDF from URL: {pdf_url}')
+    try:
+        with urllib.request.urlopen(pdf_url) as response:
+            if response.status != 200:
+                logger.error(f'Failed to download PDF: {response.status}')
+                raise Exception(f'Failed to download PDF: {response.status}')
+            pdf_content = response.read()
+    except Exception as e:
+        logger.error(f'Failed to download PDF: {e}')
+        raise Exception(f'Failed to download PDF: {e}')
 
-    # Convert PDF to text using pymupdf with memory optimization
-    # logger.info('Converting PDF to text using pymupdf.')
-    pdf_content = b''.join(chunk for chunk in response.iter_content(chunk_size=8192))
+    # Convert PDF to text using pymupdf
+    logger.info('Converting PDF to text using pymupdf.')
     pdf_file = BytesIO(pdf_content)
     doc = fitz.open(stream=pdf_file, filetype="pdf")
     
     # Extract text from all pages
-    # logger.info('Extracting text from all PDF pages.')
+    logger.info('Extracting text from all PDF pages.')
     text = ""
     for page in doc:
         text += page.get_text()
@@ -41,15 +43,15 @@ def lambda_handler(event, context):
     doc.close()
     
     # Clean and format the extracted text
-    # logger.info('Processing extracted text.')
+    logger.info('Processing extracted text.')
     text = _process_text(text)
     
     # Split into westbound and eastbound schedules
-    # logger.info('Splitting text into westbound and eastbound schedules.')
+    logger.info('Splitting text into westbound and eastbound schedules.')
     westbound_text, eastbound_text = _split_westbound_eastbound(text)
 
     # Reverse each line in eastbound data
-    # logger.info('Reversing each line in eastbound schedule.')
+    logger.info('Reversing each line in eastbound schedule.')
     eastbound_lines = eastbound_text.split('\n') if eastbound_text else []
     reversed_eastbound_lines = []
     for line in eastbound_lines:
@@ -62,7 +64,7 @@ def lambda_handler(event, context):
     eastbound_text = '\n'.join(reversed_eastbound_lines)
 
     # Compare with regular schedules and add difference flags
-    # logger.info('Comparing special schedules with regular schedules.')
+    logger.info('Comparing special schedules with regular schedules.')
     westbound_text = _add_difference_flags(westbound_text, 'west')
     eastbound_text = _add_difference_flags(eastbound_text, 'east')
 
@@ -73,46 +75,46 @@ def lambda_handler(event, context):
     debug_mode = event.get('debug_mode', False)
     
     if debug_mode:
-        # Debug mode: save to local files
-        logger.info('Debug mode enabled. Saving schedules to local files.')
+        # Debug mode: save to /tmp (Lambda temporary storage)
+        logger.info('Debug mode enabled. Saving schedules to /tmp.')
         file_name = event.get('file_name', 'special_schedule')
-        output_dir = 'output'
-        
-        # Create output directory if it doesn't exist
-        os.makedirs(output_dir, exist_ok=True)
         
         # Save westbound schedule
-        westbound_path = f"{output_dir}/{file_name}_westbound.csv"
+        westbound_path = f"/tmp/{file_name}_westbound.csv"
         with open(westbound_path, 'w', encoding='utf-8') as f:
             f.write(westbound_text)
         
         # Save eastbound schedule
-        eastbound_path = f"{output_dir}/{file_name}_eastbound.csv"
+        eastbound_path = f"/tmp/{file_name}_eastbound.csv"
         with open(eastbound_path, 'w', encoding='utf-8') as f:
             f.write(eastbound_text)
         
         output_event['westbound_schedule_local_path'] = westbound_path
         output_event['eastbound_schedule_local_path'] = eastbound_path
     else:
-        # Production mode: upload to S3
-        # logger.info('Production mode enabled. Uploading schedules to S3.')
+        # Production mode: upload to S3 using boto3 from Lambda runtime
+        logger.info('Production mode enabled. Uploading schedules to S3.')
+        
+        # Import boto3 here to use Lambda runtime version
+        import boto3
+        
         today_str = datetime.utcnow().strftime('%Y-%m-%d')
         
         # Upload westbound schedule to S3
         westbound_s3_key = f"schedules/special/{today_str}/special_schedule_westbound.csv"
         s3 = boto3.client('s3')
-        # logger.info(f'Uploading westbound schedule to S3: {westbound_s3_key}')
+        logger.info(f'Uploading westbound schedule to S3: {westbound_s3_key}')
         s3.put_object(Bucket=S3_BUCKET, Key=westbound_s3_key, Body=westbound_text.encode('utf-8'))
         
         # Upload eastbound schedule to S3
         eastbound_s3_key = f"schedules/special/{today_str}/special_schedule_eastbound.csv"
-        # logger.info(f'Uploading eastbound schedule to S3: {eastbound_s3_key}')
+        logger.info(f'Uploading eastbound schedule to S3: {eastbound_s3_key}')
         s3.put_object(Bucket=S3_BUCKET, Key=eastbound_s3_key, Body=eastbound_text.encode('utf-8'))
 
         output_event['westbound_schedule_s3_uri'] = f"s3://{S3_BUCKET}/{westbound_s3_key}"
         output_event['eastbound_schedule_s3_uri'] = f"s3://{S3_BUCKET}/{eastbound_s3_key}"
     
-    # logger.info('Lambda handler completed successfully.')
+    logger.info('Lambda handler completed successfully.')
     return output_event
 
 def _process_text(text):
@@ -406,6 +408,9 @@ def _add_difference_flags(special_schedule_text, direction):
         return special_schedule_text
     
     try:
+        # Import boto3 here to use Lambda runtime version
+        import boto3
+        
         # Get the regular schedule from S3
         regular_schedule_path = _get_regular_schedule_path(direction)
         s3 = boto3.client('s3')
@@ -446,19 +451,3 @@ def _add_difference_flags(special_schedule_text, direction):
         logger = logging.getLogger()
         logger.warning(f"Could not compare with regular schedule: {e}")
         return special_schedule_text
-
-if __name__ == "__main__":
-    """Local testing entry point."""
-    test_event = {
-        "debug_mode": True,
-        "file_name": "TW_2025-07-15",
-        "special_schedule_pdf_url": "https://www.ridepatco.org/publish/library/TW_2025-07-15.pdf"
-    }
-    try:
-        result = lambda_handler(test_event, None)
-        print("Processing complete!")
-        print(f"Output saved to: {result.get('special_schedule_txt_local_path')}")
-        print(f"Preview: {result.get('extracted_text_preview')}")
-    except Exception as e:
-        print(f"Error during processing: {e}")
-        raise
