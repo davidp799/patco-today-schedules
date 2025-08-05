@@ -10,7 +10,7 @@ rm -rf build/ *.zip __pycache__/ .pytest_cache/
 mkdir build
 
 # Install only production dependencies with no cache and no dev dependencies
-pip install --no-cache-dir --no-deps -t build/ PyMuPDF==1.23.26
+pip install --no-cache-dir --no-deps -t build/ PyMuPDF==1.26.3
 
 # Copy only the lambda function (exclude unnecessary files)
 cp lambda_function.py build/
