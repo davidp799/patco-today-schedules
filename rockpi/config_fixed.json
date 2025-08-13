@@ -1,0 +1,11 @@
+{
+  "s3_bucket": "patco-today",
+  "aws_region": "us-east-1",
+  "patco_schedules_url": "http://www.ridepatco.org/schedules/",
+  "gtfs_zip_url": "http://www.ridepatco.org/developers/PortAuthorityTransitCorporation.zip",
+  "log_level": "INFO",
+  "timeout_seconds": 30,
+  "retry_attempts": 3,
+  "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+  "lambda_function_name": "GetScheduleInformation"
+}
