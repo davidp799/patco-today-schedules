@@ -1,0 +1,20 @@
+{
+    "device_id": "rockpi-4b-plus-home",
+    "metric_namespace": "RockPi/Heartbeat",
+    "heartbeat_metric_name": "DeviceUptime",
+    "heartbeat_interval_hours": 6,
+    "aws_region": "us-east-1",
+    
+    "monitoring": {
+        "enabled": true,
+        "include_system_metrics": true,
+        "alert_threshold_hours": 6.5,
+        "sns_topic_name": "patco-s3-monitoring-alerts"
+    },
+    
+    "logging": {
+        "level": "INFO",
+        "log_file": "logs/heartbeat.log",
+        "max_log_files": 7
+    }
+}
