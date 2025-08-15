@@ -251,9 +251,16 @@ def main():
         westbound_text = add_difference_flags(westbound_text, 'west')
         eastbound_text = add_difference_flags(eastbound_text, 'east')
 
-        # Upload to S3
-        schedule_date = schedule_info['schedule_date']
-        
+        # Get the date from special_schedule_text
+        special_text = schedule_info.get('special_schedule_text', '')
+        date_match = re.search(r'(\w+), (\w+ \d{1,2}, \d{4})', special_text)
+        if date_match:
+            date_obj = datetime.strptime(date_match.group(2), "%B %d, %Y")
+            schedule_date = date_obj.strftime("%Y-%m-%d")
+        else:
+            # fallback to today
+            schedule_date = datetime.now().strftime("%Y-%m-%d")
+
         # Upload westbound schedule
         westbound_key = f'schedules/special/{schedule_date}/special_schedule_westbound.csv'
         s3_client.put_object(
