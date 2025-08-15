@@ -36,7 +36,7 @@ def main():
     # Initialize S3 client
     s3_client = boto3.client('s3', region_name=config['aws_region'])
     bucket = config['s3_bucket']
-    prefix = "PortAuthorityTransitCorporation/"
+    prefix = "gtfs/"
     zip_url = config['gtfs_zip_url']
     
     try:
