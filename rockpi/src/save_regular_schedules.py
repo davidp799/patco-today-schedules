@@ -85,7 +85,7 @@ def main():
             Key=metadata_key,
             Body=json.dumps({
                 'effective_date': effective_date,
-                'processed_at': schedule_info['current_timestamp'],
+                'processed_at': schedule_info.get('currentTimestamp') or schedule_info.get('current_timestamp', 'unknown'),
                 'files_count': files_uploaded
             }).encode('utf-8'),
             ContentType='application/json',
