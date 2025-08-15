@@ -1,4 +1,5 @@
 import boto3
+import json
 import logging
 import os
 import re
@@ -65,6 +66,26 @@ def lambda_handler(event, context):
         'special_schedule_text': special_schedule_text,
         "currentTimestamp": today.isoformat()
     }
+    
+    # Save the response to S3 for Rock Pi to process
+    try:
+        s3_key = f'lambda-outputs/schedule-info/{today.strftime("%Y-%m-%d")}/schedule_info.json'
+        s3_client.put_object(
+            Bucket='patco-today',
+            Key=s3_key,
+            Body=json.dumps(response_payload, indent=2).encode('utf-8'),
+            ContentType='application/json',
+            Metadata={
+                'execution_time': today.isoformat(),
+                'has_special_schedule': str(has_special_schedule),
+                'has_new_regular_schedule': str(has_new_regular_schedule)
+            }
+        )
+        logger.info(f"Schedule info saved to S3: {s3_key}")
+    except Exception as e:
+        logger.error(f"Failed to save schedule info to S3: {e}")
+        # Don't fail the Lambda if S3 save fails
+    
     return response_payload
 
 def get_regular_schedule_effective_date_and_pdf(soup, base_url):

@@ -1,0 +1,115 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "RockPi/Heartbeat", "SystemUptime", "DeviceId", "rockpi-4b-plus-home" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Rock Pi System Uptime (Hours)",
+        "period": 21600,
+        "stat": "Average",
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "RockPi/Heartbeat", "DeviceUptime", "DeviceId", "rockpi-4b-plus-home" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Rock Pi Heartbeat Status",
+        "period": 21600,
+        "stat": "Sum",
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 2
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "RockPi/Heartbeat", "LoadAverage", "DeviceId", "rockpi-4b-plus-home" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Rock Pi System Load Average",
+        "period": 21600,
+        "stat": "Average",
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 6,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "RockPi/Heartbeat", "MemoryUsagePercent", "DeviceId", "rockpi-4b-plus-home" ]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Rock Pi Memory Usage Percent",
+        "period": 21600,
+        "stat": "Average",
+        "yAxis": {
+          "left": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 12,
+      "width": 24,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "RockPi/Heartbeat", "SystemUptime", "DeviceId", "rockpi-4b-plus-home" ]
+        ],
+        "view": "singleValue",
+        "region": "us-east-1",
+        "title": "Current System Uptime",
+        "period": 21600,
+        "stat": "Maximum"
+      }
+    }
+  ]
+}
