@@ -3,11 +3,7 @@ import boto3
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple, List
 
-# Initialize S3 client with connection pooling and reduced retries
-s3 = boto3.client('s3', config=boto3.session.Config(
-    max_pool_connections=10,
-    retries={'max_attempts': 2}
-))
+s3 = boto3.client('s3')
 
 # Constants
 BUCKET_NAME = 'patco-today'
@@ -80,12 +76,13 @@ def _get_special_schedules(schedule_date: str) -> Optional[Dict[str, Any]]:
     """Check for and return special schedule URLs if they exist."""
     special_base_path = f'schedules/special/{schedule_date}/'
     
-    # Check if both special schedule files exist in a single batch operation
-    files_to_check = [f'{special_base_path}{filename}' for filename in SPECIAL_SCHEDULE_FILES]
-    files_exist = _batch_check_files_exist(files_to_check)
+    # Check if both special schedule files exist
+    files_exist = [
+        _check_file_exists(f'{special_base_path}{filename}')
+        for filename in SPECIAL_SCHEDULE_FILES
+    ]
     
     if not all(files_exist):
-        return None
         return None
     
     # Generate presigned URLs
@@ -185,7 +182,7 @@ def _generate_regular_schedule_urls(date: datetime) -> Dict[str, str]:
             url = _generate_presigned_url(file_key)
             url_key = _filename_to_url_key(filename)
             urls[url_key] = url
-    
+
     return urls
 
 def _get_regular_schedule_path(date: datetime) -> str:
@@ -245,24 +242,10 @@ def _generate_presigned_url(key: str) -> str:
         ExpiresIn=PRESIGNED_URL_EXPIRATION
     )
 
-def _batch_check_files_exist(keys: List[str]) -> List[bool]:
-    """Check if multiple files exist in S3 using batch operations."""
-    results = []
-    for key in keys:
-        results.append(_check_file_exists(key))
-    return results
-
 def _check_file_exists(key: str) -> bool:
     """Check if a file exists in S3."""
     try:
         s3.head_object(Bucket=BUCKET_NAME, Key=key)
         return True
-    except s3.exceptions.NoSuchKey:
-        return False
-    except s3.exceptions.ClientError as e:
-        if e.response['Error']['Code'] == '404':
-            return False
-        # For other errors, assume file doesn't exist to avoid retries
-        return False
     except Exception:
         return False

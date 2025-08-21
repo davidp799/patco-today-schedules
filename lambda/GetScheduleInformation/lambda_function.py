@@ -18,6 +18,7 @@ s3_client = boto3.client('s3', config=boto3.session.Config(
 ))
 
 # Instantiate variables
+GTFS_REFERENCE_OBJECT = os.environ.get('GTFS_REFERENCE_OBJECT')
 PATCO_SCHEDULES_URL = os.environ.get('PATCO_SCHEDULES_URL')
 REGULAR_SCHEDULE_BUCKET = os.environ.get('REGULAR_SCHEDULE_BUCKET')
 REGULAR_SCHEDULE_KEY = os.environ.get('REGULAR_SCHEDULE_KEY')
@@ -54,7 +55,7 @@ def lambda_handler(event, context):
     has_new_regular_schedule = False
     if regular_schedule_effective_date:
         has_new_regular_schedule = check_new_regular_schedule(
-            s3_client, REGULAR_SCHEDULE_BUCKET, REGULAR_SCHEDULE_KEY, regular_schedule_effective_date
+            s3_client, REGULAR_SCHEDULE_BUCKET, GTFS_REFERENCE_OBJECT, regular_schedule_effective_date
         )
 
     response_payload = {
@@ -229,13 +230,12 @@ def save_special_schedule_to_s3(pdf_url, date):
         return False
 
 def check_new_regular_schedule(s3_client, bucket, key, effective_date):
-    """Checks if the regular schedule is new compared to S3 metadata."""
+    """Checks if the regular schedule is new compared to S3 last modified date."""
     try:
         response = s3_client.head_object(Bucket=bucket, Key=key)
-        s3_last_modified_str = response.get('Metadata', {}).get('last-modified-date')
-        if not s3_last_modified_str:
-            return True
-        s3_last_modified_dt = datetime.fromisoformat(s3_last_modified_str.replace('Z', '+00:00'))
+        s3_last_modified_dt = response['LastModified']  # This is a datetime object (UTC)
+        print(f"S3 last modified: {s3_last_modified_dt}")
+
         # Try both 2-digit and 4-digit year parsing
         for fmt in ("%m/%d/%y", "%m/%d/%Y"):
             try:
