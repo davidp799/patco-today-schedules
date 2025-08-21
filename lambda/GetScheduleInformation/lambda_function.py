@@ -3,9 +3,13 @@ import json
 import logging
 import os
 import re
+
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
+
+# Use a requests session for connection reuse
+requests_session = requests.Session()
 
 # Configure logging
 logger = logging.getLogger()
@@ -37,12 +41,16 @@ def lambda_handler(event, context):
     headers = {'User-Agent': USER_AGENT}
 
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests_session.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        regular_schedule_effective_date, regular_schedule_pdf_url = get_regular_schedule_effective_date_and_pdf(soup, url)
-        pdf_url, special_schedule_text = get_today_special_schedule(soup, today)
+        # Parse all <b> and <h2> tags once for reuse
+        b_tags = soup.find_all('b')
+        h2_tags = soup.find_all('h2')
+
+        regular_schedule_effective_date, regular_schedule_pdf_url = get_regular_schedule_effective_date_and_pdf(soup, url, b_tags)
+        pdf_url, special_schedule_text = get_today_special_schedule(soup, today, h2_tags)
         has_special_schedule = pdf_url is not None
 
     except requests.exceptions.RequestException as e:
@@ -89,9 +97,10 @@ def lambda_handler(event, context):
     
     return response_payload
 
-def get_regular_schedule_effective_date_and_pdf(soup, base_url):
+def get_regular_schedule_effective_date_and_pdf(soup, base_url, b_tags=None):
     """Extracts the effective date and PDF link of the regular schedule from the page."""
-    for b in soup.find_all('b'):
+    b_tags = b_tags if b_tags is not None else soup.find_all('b')
+    for b in b_tags:
         text = b.get_text(strip=True)
         if text.startswith("Effective "):
             match = re.search(r'Effective\s+(\d{1,2}/\d{1,2}/\d{2,4})', text)
@@ -109,9 +118,10 @@ def get_regular_schedule_effective_date_and_pdf(soup, base_url):
             return effective_date, pdf_url
     return None, None
 
-def get_today_special_schedule(soup, today):
+def get_today_special_schedule(soup, today, h2_tags=None):
     """Finds today's special schedule PDF and description, if any."""
-    special_h2 = next((h2 for h2 in soup.find_all('h2') if "Special Schedule" in h2.get_text()), None)
+    h2_tags = h2_tags if h2_tags is not None else soup.find_all('h2')
+    special_h2 = next((h2 for h2 in h2_tags if "Special Schedule" in h2.get_text()), None)
     if not special_h2:
         return None, None
 
@@ -130,13 +140,12 @@ def get_today_special_schedule(soup, today):
                     date_str = date_match.group(2)
                     link_date = datetime.strptime(date_str, "%B %d, %Y").date()
                     if link_date == today.date():
-                        # Save PDF to S3
                         pdf_url = a['href']
-                        if save_special_schedule_to_s3(pdf_url, today):
+                        if save_special_schedule_to_s3(pdf_url, today, check_exists=True):
                             return pdf_url, link_text
                         else:
                             logger.warning(f"Failed to save special schedule PDF: {pdf_url}")
-                            return pdf_url, link_text  # Still return the URL even if save failed
+                            return pdf_url, link_text
                 except Exception:
                     continue
 
@@ -146,12 +155,11 @@ def get_today_special_schedule(soup, today):
         a = li.find('a', href=True)
         if a and a['href'].lower().endswith('.pdf'):
             href = a['href']
-            # Check for TW_yyyy-mm-dd.pdf pattern
             tw_match = re.search(r'TW_(\d{4}-\d{2}-\d{2})\.pdf', href)
             if tw_match and tw_match.group(1) == target_date_str:
                 pdf_url = href
                 link_text = a.get_text(strip=True)
-                if save_special_schedule_to_s3(pdf_url, today):
+                if save_special_schedule_to_s3(pdf_url, today, check_exists=True):
                     return pdf_url, link_text
                 else:
                     logger.warning(f"Failed to save special schedule PDF: {pdf_url}")
@@ -159,24 +167,23 @@ def get_today_special_schedule(soup, today):
 
     # Third try: Look for any PDF containing today's date in various formats
     date_patterns = [
-        today.strftime('%Y-%m-%d'),    # 2025-07-25
-        today.strftime('%Y_%m_%d'),    # 2025_07_25
-        today.strftime('%m-%d-%Y'),    # 07-25-2025
-        today.strftime('%m_%d_%Y'),    # 07_25_2025
-        today.strftime('%d-%m-%Y'),    # 25-07-2025
-        today.strftime('%d_%m_%Y'),    # 25_07_2025
+        today.strftime('%Y-%m-%d'),
+        today.strftime('%Y_%m_%d'),
+        today.strftime('%m-%d-%Y'),
+        today.strftime('%m_%d_%Y'),
+        today.strftime('%d-%m-%Y'),
+        today.strftime('%d_%m_%Y'),
     ]
-    
+
     for li in ul.find_all('li'):
         a = li.find('a', href=True)
         if a and a['href'].lower().endswith('.pdf'):
             href = a['href']
-            # Check if any date pattern appears in the href
             for pattern in date_patterns:
                 if pattern in href:
                     pdf_url = href
                     link_text = a.get_text(strip=True)
-                    if save_special_schedule_to_s3(pdf_url, today):
+                    if save_special_schedule_to_s3(pdf_url, today, check_exists=True):
                         return pdf_url, link_text
                     else:
                         logger.warning(f"Failed to save special schedule PDF: {pdf_url}")
@@ -184,8 +191,8 @@ def get_today_special_schedule(soup, today):
 
     return None, None
 
-def save_special_schedule_to_s3(pdf_url, date):
-    """Downloads and saves special schedule PDF to S3."""
+def save_special_schedule_to_s3(pdf_url, date, check_exists=False):
+    """Downloads and saves special schedule PDF to S3, skipping upload if already present."""
     try:
         # Construct full URL if needed
         if not pdf_url.startswith('http'):
@@ -194,22 +201,31 @@ def save_special_schedule_to_s3(pdf_url, date):
             if not pdf_url.startswith('/'):
                 pdf_url = '/' + pdf_url
             pdf_url = f"http://www.ridepatco.org{pdf_url}"
-        
-        # Download the PDF
-        headers = {'User-Agent': USER_AGENT}
-        response = requests.get(pdf_url, headers=headers, timeout=30)
-        response.raise_for_status()
-        
-        # Use default filename
+
         file_name = 'special_schedule.pdf'
-        
-        # Format date and create S3 key
         date_str = date.strftime('%Y-%m-%d')
         s3_key = f"schedules/special/{date_str}/{file_name}"
-        
+
+        # Check if file already exists in S3
+        if check_exists:
+            try:
+                s3_client.head_object(Bucket=REGULAR_SCHEDULE_BUCKET, Key=s3_key)
+                # File exists, skip upload
+                return True
+            except s3_client.exceptions.ClientError as e:
+                if e.response['Error']['Code'] != '404' and e.response['Error']['Code'] != 'NotFound':
+                    logger.error(f"S3 access error: {e}")
+                    return False
+                # File does not exist, continue to download/upload
+
+        # Download the PDF
+        headers = {'User-Agent': USER_AGENT}
+        response = requests_session.get(pdf_url, headers=headers, timeout=30)
+        response.raise_for_status()
+
         # Upload to S3
         s3_client.put_object(
-            Bucket=REGULAR_SCHEDULE_BUCKET,  # Using same bucket, could be made configurable
+            Bucket=REGULAR_SCHEDULE_BUCKET,
             Key=s3_key,
             Body=response.content,
             ContentType='application/pdf',
@@ -218,10 +234,8 @@ def save_special_schedule_to_s3(pdf_url, date):
                 'source-url': pdf_url
             }
         )
-        
-        # logger.info(f"Successfully saved special schedule PDF to S3: {s3_key}")
         return True
-        
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to download special schedule PDF from {pdf_url}: {e}")
         return False
