@@ -141,7 +141,7 @@ def get_today_special_schedule(soup, today, h2_tags=None):
                     link_date = datetime.strptime(date_str, "%B %d, %Y").date()
                     if link_date == today.date():
                         pdf_url = a['href']
-                        if save_special_schedule_to_s3(pdf_url, today, check_exists=True):
+                        if save_special_schedule_to_s3(pdf_url, today, check_exists=False):
                             return pdf_url, link_text
                         else:
                             logger.warning(f"Failed to save special schedule PDF: {pdf_url}")
@@ -159,7 +159,7 @@ def get_today_special_schedule(soup, today, h2_tags=None):
             if tw_match and tw_match.group(1) == target_date_str:
                 pdf_url = href
                 link_text = a.get_text(strip=True)
-                if save_special_schedule_to_s3(pdf_url, today, check_exists=True):
+                if save_special_schedule_to_s3(pdf_url, today, check_exists=False):
                     return pdf_url, link_text
                 else:
                     logger.warning(f"Failed to save special schedule PDF: {pdf_url}")
@@ -183,7 +183,7 @@ def get_today_special_schedule(soup, today, h2_tags=None):
                 if pattern in href:
                     pdf_url = href
                     link_text = a.get_text(strip=True)
-                    if save_special_schedule_to_s3(pdf_url, today, check_exists=True):
+                    if save_special_schedule_to_s3(pdf_url, today, check_exists=False):
                         return pdf_url, link_text
                     else:
                         logger.warning(f"Failed to save special schedule PDF: {pdf_url}")
