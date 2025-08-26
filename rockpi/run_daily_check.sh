@@ -49,11 +49,13 @@ if [ -f "temp/schedule_info.json" ]; then
     
     # Process special schedules if found
     if [ "$HAS_SPECIAL" = "True" ]; then
-        log "Step 2a: Converting special schedule PDF to CSV..."
+        log "Step 2a: Processing special schedule..."
+        python3 src/process_special_schedule.py >> "$LOG_FILE" 2>&1 || handle_error "Failed to process special schedule"
+        log "Step 2b: Converting special schedule PDF to CSV..."
         python3 src/convert_pdf_to_csv.py >> "$LOG_FILE" 2>&1 || handle_error "Failed to convert PDF to CSV"
-        log "Special schedule PDF converted successfully"
+        log "Special schedule processed and converted successfully"
     else
-        log "Step 2a: No special schedule found, skipping PDF conversion"
+        log "Step 2a: No special schedule found, skipping PDF processing"
     fi
     
     # Process new regular schedules if found

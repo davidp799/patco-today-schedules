@@ -192,7 +192,7 @@ def get_today_special_schedule(soup, today, h2_tags=None):
     return None, None
 
 def save_special_schedule_to_s3(pdf_url, date, check_exists=False):
-    """Downloads and saves special schedule PDF to S3, skipping upload if already present."""
+    """Saves special schedule information to S3 for RockPi processing."""
     try:
         # Construct full URL if needed
         if not pdf_url.startswith('http'):
@@ -202,37 +202,21 @@ def save_special_schedule_to_s3(pdf_url, date, check_exists=False):
                 pdf_url = '/' + pdf_url
             pdf_url = f"http://www.ridepatco.org{pdf_url}"
 
-        file_name = 'special_schedule.pdf'
+        # Save URL and date info for RockPi to process
         date_str = date.strftime('%Y-%m-%d')
-        s3_key = f"schedules/special/{date_str}/{file_name}"
-
-        # Check if file already exists in S3
-        if check_exists:
-            try:
-                s3_client.head_object(Bucket=REGULAR_SCHEDULE_BUCKET, Key=s3_key)
-                # File exists, skip upload
-                return True
-            except s3_client.exceptions.ClientError as e:
-                if e.response['Error']['Code'] != '404' and e.response['Error']['Code'] != 'NotFound':
-                    logger.error(f"S3 access error: {e}")
-                    return False
-                # File does not exist, continue to download/upload
-
-        # Download the PDF
-        headers = {'User-Agent': USER_AGENT}
-        response = requests_session.get(pdf_url, headers=headers, timeout=30)
-        response.raise_for_status()
-
-        # Upload to S3
+        s3_key = f'lambda-outputs/schedule-info/{date_str}/special_schedule_info.json'
+        
+        info = {
+            'pdf_url': pdf_url,
+            'date': date.isoformat(),
+            'schedule_type': 'special'
+        }
+        
         s3_client.put_object(
             Bucket=REGULAR_SCHEDULE_BUCKET,
             Key=s3_key,
-            Body=response.content,
-            ContentType='application/pdf',
-            Metadata={
-                'download-date': date.isoformat(),
-                'source-url': pdf_url
-            }
+            Body=json.dumps(info),
+            ContentType='application/json'
         )
         return True
 
