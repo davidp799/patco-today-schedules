@@ -41,7 +41,6 @@ patco-today-schedules/
 
 **GetScheduleInformation** (`lambda/GetScheduleInformation/`)
 - Scrapes PATCO website for schedule updates
-- Bypasses IP restrictions that block residential connections
 - Saves JSON results to S3 at `lambda-outputs/schedule-info/YYYY-MM-DD/`
 - Triggered daily by EventBridge at midnight UTC
 
