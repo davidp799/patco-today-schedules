@@ -5,8 +5,8 @@ Hybrid cloud-edge system for processing PATCO (Port Authority Transit Corporatio
 ## Architecture Overview
 
 This system uses a cost-optimized hybrid approach:
-- **AWS Lambda**: Web scraping (bypasses IP restrictions) - 14% of original cost
-- **Rock Pi 4B+**: Heavy processing (PDF conversion, CSV generation) - 86% cost reduction
+- **AWS Lambda**: Web scraping (bypasses IP restrictions) - 20% of original cost
+- **Rock Pi 4B+**: Heavy processing (PDF conversion, CSV generation) - 75% cost reduction
 - **EventBridge**: Automated daily scheduling with 5-minute delays
 - **S3 Storage**: Centralized data exchange between components
 
@@ -122,18 +122,14 @@ curl "https://api-endpoint/prod?schedule_date=2025-07-15&last_updated=2025-07-01
 ## Cost Analysis
 
 Migration from pure AWS Lambda to hybrid Rock Pi system:
-- **Before**: ~$50/month for heavy PDF processing
-- **After**: ~$7/month (AWS Lambda for scraping only)  
-- **Savings**: 86% cost reduction
-- **ROI**: Rock Pi hardware cost recovered in 3 months
+- **Before**: ~$20/month for heavy PDF processing
+- **After**: ~$5/month (AWS Lambda for scraping only)  
+- **Savings**: 75% cost reduction
+- **ROI**: Rock Pi hardware already available (free)
 
 ## Troubleshooting
 
 ### Common Issues
-
-**Rock Pi can't reach PATCO website**
-- Solution: Hybrid architecture uses Lambda for web scraping
-- Rock Pi reads results from S3 instead of direct scraping
 
 **Missing dependencies on Rock Pi**
 - Run: `pip install -r rockpi/requirements.txt`
