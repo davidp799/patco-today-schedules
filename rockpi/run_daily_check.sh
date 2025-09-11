@@ -23,10 +23,27 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+# Function to upload log file to S3
+upload_log() {
+    if [ -f "$LOG_FILE" ]; then
+        log "Uploading log file to S3..."
+        # Get bucket name from config, similar to test_setup.sh
+        BUCKET=$(python3 -c "import json; print(json.load(open('config.json'))['s3_bucket'])" 2>/dev/null)
+        
+        if [ -z "$BUCKET" ]; then
+            log "ERROR: S3 bucket name not found in config.json. Skipping log upload."
+            return
+        fi
+        
+        aws s3 cp "$LOG_FILE" "s3://$BUCKET/logs/" >> "$LOG_FILE" 2>&1 || log "ERROR: Failed to upload log file to S3."
+    fi
+}
+
 # Function to handle errors
 handle_error() {
     log "ERROR: $1"
     log "Daily processing failed at $(date)"
+    upload_log
     exit 1
 }
 
@@ -76,6 +93,9 @@ else
 fi
 
 log "Daily processing completed successfully at $(date)"
+
+# Upload the log file to S3 on successful completion
+upload_log
 
 # Keep only the last 30 days of logs
 find logs/ -name "daily_run_*.log" -mtime +30 -delete 2>/dev/null || true
