@@ -22,9 +22,51 @@ sys.path.append(str(Path(__file__).parent.parent))
 from utils.config import load_config
 from utils.logger import setup_logging
 
+def combine_schedule_lines(text):
+    """
+    Combines fragmented schedule lines from the PDF text extraction into single lines.
+    It joins consecutive lines containing time-like patterns until a line has
+    approximately 14 time entries, which corresponds to a full schedule row.
+    """
+    lines = text.split('\n')
+    combined_lines = []
+    schedule_buffer = ""
+    time_pattern = r'\d{1,2}:\d{2}\s?[AP]'
+
+    for line in lines:
+        # Normalize line for pattern matching by removing extra spaces
+        line_for_match = line.replace(" ", "")
+
+        # If the line contains what looks like schedule times
+        if re.search(r'\d{1,2}:\d{2}[AP]', line_for_match):
+            schedule_buffer += " " + line.strip()
+            # Count times in the buffer
+            time_count = len(re.findall(time_pattern, schedule_buffer))
+
+            if time_count >= 14:
+                combined_lines.append(schedule_buffer.strip())
+                schedule_buffer = ""
+        else:
+            # If there's anything in the buffer, flush it
+            if schedule_buffer:
+                combined_lines.append(schedule_buffer.strip())
+                schedule_buffer = ""
+            # And add the non-schedule line
+            combined_lines.append(line)
+
+    # Flush any remaining buffer at the end of the file
+    if schedule_buffer:
+        combined_lines.append(schedule_buffer.strip())
+
+    return '\n'.join(combined_lines)
+
 def process_text(text):
     """Clean and format extracted PDF text into CSV format."""
     # Step 1: Replace special characters with CLOSED
+    # Step 0: Combine multi-line schedule entries into single lines
+    text = combine_schedule_lines(text)
+
+    # Step 1: Replace special characters and remove whitespace/tabs
     text = text.replace("►", "")
     text = text.replace("à", "CLOSED,")
     
@@ -33,9 +75,13 @@ def process_text(text):
     text = text.replace("\t", "")
     
     # Step 3: Add commas after time patterns (e.g., "12:34A" -> "12:34A,")
+
+    # Step 2: Add commas after time patterns (e.g., "12:34A" -> "12:34A,")
     text = re.sub(r'(\d{1,2}:\d{2}[AP])', r'\1,', text)
     
     # Step 4: Filter lines to keep only valid schedule data
+
+    # Subsequent processing steps
     text = filter_valid_lines(text)
     
     # Step 5: Fix CLOSED entries that need comma separation
@@ -52,7 +98,7 @@ def process_text(text):
     for i, line in enumerate(text.split('\n')):
         logging.info(f"Processed line {i+1}: {line}")
     logging.info("--------------------------------------------")
-    
+
     return text
 
 def filter_valid_lines(text):
@@ -233,7 +279,6 @@ def main():
             text += page.get_text()
         
         doc.close()
-        
         # Log the raw text before processing for debugging
         logging.info("--- Raw text from PDF before processing ---")
         for i, line in enumerate(text.split('\n')):
