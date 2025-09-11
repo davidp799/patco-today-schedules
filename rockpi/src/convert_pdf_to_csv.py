@@ -47,6 +47,12 @@ def process_text(text):
     # Step 7: Ensure each line has exactly 14 columns
     text = normalize_to_14_columns(text)
     
+    # Log the final processed text line by line for debugging
+    logging.info("--- Text after processing (line by line) ---")
+    for i, line in enumerate(text.split('\n')):
+        logging.info(f"Processed line {i+1}: {line}")
+    logging.info("--------------------------------------------")
+    
     return text
 
 def filter_valid_lines(text):
@@ -227,6 +233,12 @@ def main():
             text += page.get_text()
         
         doc.close()
+        
+        # Log the raw text before processing for debugging
+        logging.info("--- Raw text from PDF before processing ---")
+        for i, line in enumerate(text.split('\n')):
+            logging.info(f"Raw line {i+1}: {line}")
+        logging.info("-------------------------------------------")
         
         # Clean and format the extracted text
         logging.info('Processing extracted text')
